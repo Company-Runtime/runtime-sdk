@@ -240,6 +240,13 @@ export function defineProvider(definition: ProviderDefinition): Provider {
             status: "failed",
             error: { code: error.code, message: error.message, retryable: error.retryable },
           };
+        // The system behind the provider never received the request: nothing happened.
+        if (error instanceof ProviderUnreachableError)
+          return {
+            ...envelope,
+            status: "failed",
+            error: { code: "provider_unavailable", message: error.message, retryable: true },
+          };
         const aborted = base.signal.aborted;
         return {
           ...envelope,

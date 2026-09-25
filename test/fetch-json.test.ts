@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
-import { fetchJson, ProviderFailure, ProviderUnreachableError } from "../src/index.ts";
+import {
+  createRuntime,
+  defineProvider,
+  fetchJson,
+  GrantAuthority,
+  ProviderFailure,
+  ProviderUnreachableError,
+} from "../src/index.ts";
 
 /** A local API whose answer is chosen by the request path. */
 async function api(): Promise<{
@@ -99,4 +106,60 @@ test("fetchJson classifies failures by what they prove about effects", async () 
   const { port } = closed.address() as { port: number };
   await new Promise<void>((resolve) => closed.close(() => resolve()));
   await assert.rejects(fetchJson(`http://127.0.0.1:${port}/ok`), ProviderUnreachableError);
+});
+
+test("a provider whose vendor API cannot be reached fails with provider_unavailable", async () => {
+  const closed = createServer();
+  await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+  const { port } = closed.address() as { port: number };
+  await new Promise<void>((resolve) => closed.close(() => resolve()));
+  let calls = 0;
+  const provider = defineProvider({
+    id: "vendor-kb",
+    capabilities: ["knowledge.search", "resource.delete"],
+    reconcile: { "resource.delete": () => ({ status: "inconclusive", reason: "unknown" }) },
+    handlers: {
+      "knowledge.search": async (_input, ctx) => {
+        calls++;
+        await fetchJson(`http://127.0.0.1:${port}/search`, { signal: ctx.signal });
+        return { output: { results: [] } };
+      },
+      "resource.delete": async (_input, ctx) => {
+        calls++;
+        await fetchJson(`http://127.0.0.1:${port}/delete`, {
+          method: "DELETE",
+          signal: ctx.signal,
+        });
+        return { output: {} };
+      },
+    },
+  });
+  const runtime = createRuntime({
+    providers: [provider],
+    authority: new GrantAuthority([
+      {
+        id: "agent",
+        authority: "authority://company/operations",
+        subjects: ["identity://agent/a"],
+        capabilities: ["knowledge.search", "resource.delete"],
+      },
+    ]),
+  });
+  const search = await runtime.execute({
+    capability: "knowledge.search",
+    actor: "identity://agent/a",
+    input: { query: "x" },
+  });
+  assert.equal(search.execution.state, "failed");
+  assert.equal(search.error?.code, "provider_unavailable");
+  // Even a mutating capability fails outright: the request never left.
+  const deletion = await runtime.execute({
+    capability: "resource.delete",
+    actor: "identity://agent/a",
+    resource: "resource://records/1",
+    input: { resource: "resource://records/1" },
+  });
+  assert.equal(deletion.execution.state, "failed");
+  assert.equal(deletion.error?.code, "provider_unavailable");
+  assert.equal(calls, 2);
 });
