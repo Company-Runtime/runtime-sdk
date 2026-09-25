@@ -1,0 +1,72 @@
+{
+  "name": "@runtime-protocol/sdk",
+  "version": "0.1.0",
+  "description": "Reference TypeScript implementation of the Runtime Protocol runtime/0.1: types, validation, resolution, execution, evidence, receipts, bindings and conformance.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Company-Runtime/runtime-sdk.git"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./http": {
+      "types": "./dist/bindings/http/index.d.ts",
+      "default": "./dist/bindings/http/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/bindings/mcp/index.d.ts",
+      "default": "./dist/bindings/mcp/index.js"
+    },
+    "./events": {
+      "types": "./dist/bindings/events/index.d.ts",
+      "default": "./dist/bindings/events/index.js"
+    },
+    "./reference": {
+      "types": "./dist/reference/index.d.ts",
+      "default": "./dist/reference/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance/index.d.ts",
+      "default": "./dist/conformance/index.js"
+    }
+  },
+  "bin": {
+    "runtime-conformance": "./dist/conformance/cli.js"
+  },
+  "files": [
+    "dist",
+    "protocol.lock.json",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepare": "pnpm run build",
+    "typecheck": "tsc -p tsconfig.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "protocol:sync": "node scripts/protocol-sync.ts",
+    "protocol:check": "node scripts/protocol-sync.ts --check",
+    "conformance": "node src/conformance/cli.ts runtime",
+    "ci": "pnpm run format:check && pnpm run typecheck && pnpm run build && pnpm test"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3"
+  }
+}
