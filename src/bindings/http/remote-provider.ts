@@ -1,5 +1,6 @@
 import { PROTOCOL } from "../../constants.ts";
 import { ProviderUnreachableError, type Provider } from "../../provider.ts";
+import { isUnreachable } from "../../transport.ts";
 import type {
   Health,
   Invocation,
@@ -16,38 +17,6 @@ export interface RemoteProviderOptions {
   fetch?: typeof fetch;
   /** Transport credentials of the runtime towards the provider (never provider API keys). */
   headers?: Record<string, string>;
-}
-
-const UNREACHABLE = new Set([
-  "ECONNREFUSED",
-  "ENOTFOUND",
-  "EAI_AGAIN",
-  "EHOSTUNREACH",
-  "ENETUNREACH",
-]);
-
-/**
- * True when a fetch failure provably happened before the provider received the request:
- * connection refused, unresolvable host, unreachable network, or a port the Fetch
- * standard blocks. Walks the cause chain, including aggregated connection attempts.
- */
-function isUnreachable(error: unknown, depth = 0): boolean {
-  if (depth > 5 || typeof error !== "object" || error === null) return false;
-  const { code, message, cause, errors } = error as {
-    code?: unknown;
-    message?: unknown;
-    cause?: unknown;
-    errors?: unknown;
-  };
-  if (typeof code === "string" && UNREACHABLE.has(code)) return true;
-  if (message === "bad port") return true;
-  if (
-    Array.isArray(errors) &&
-    errors.length > 0 &&
-    errors.every((e) => isUnreachable(e, depth + 1))
-  )
-    return true;
-  return isUnreachable(cause, depth + 1);
 }
 
 /** A provider reached through the provider API of the http/0.1 binding. */

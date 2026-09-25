@@ -94,6 +94,8 @@ export {
   type ReconcileHandler,
   type EvidenceHelpers,
 } from "./provider.ts";
+export { fetchJson, type FetchJsonOptions, type JsonResponse } from "./fetch-json.ts";
+export { isUnreachable } from "./transport.ts";
 export {
   buildRequest,
   request,

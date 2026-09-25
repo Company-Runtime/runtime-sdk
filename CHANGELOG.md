@@ -22,7 +22,8 @@ commit in [`protocol.lock.json`](protocol.lock.json).
   cancellation, approval, evidence-before-completion, uncertain outcomes and
   reconciliation, canonical RFC 8785 receipts and events.
 - Provider SDK (`defineProvider`) with input validation, evidence helpers and typed
-  failures; an in-process reference provider.
+  failures; `fetchJson`, which classifies vendor HTTP failures by what they prove
+  about effects; an in-process reference provider.
 - Bindings: HTTP runtime API, client and provider API (`http/0.1`); MCP server over
   stdio, MCP tools as adapters and runtime federation over MCP (`mcp/0.1`); lossless
   CloudEvents mapping and sinks (`events/0.1`).

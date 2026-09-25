@@ -131,7 +131,9 @@ export const provider = defineProvider({
 
 `defineProvider` validates the input against the capability schema before the handler
 runs, reports `ProviderFailure` as `failed` (proof that nothing happened) and any other
-error as `unknown`. Verify a provider against requirements `PC-001`–`PC-010`:
+error as `unknown`. `fetchJson` calls vendor HTTP APIs with the same discipline: a
+request that never left is `provider_unavailable`, a 4xx answer is a failure, and a
+5xx answer or an interruption after sending is `unknown`. Verify a provider against requirements `PC-001`–`PC-010`:
 
 ```bash
 runtime-conformance provider ./dist/provider.js --export provider --samples samples.yaml
