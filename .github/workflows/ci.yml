@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the pinned protocol
+        run: |
+          repository=$(node -p "require('./protocol.lock.json').repository")
+          commit=$(node -p "require('./protocol.lock.json').commit")
+          git init -q .protocol
+          git -C .protocol fetch -q --depth 1 "$repository" "$commit"
+          git -C .protocol checkout -q FETCH_HEAD
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bundled protocol matches the lock
+        run: pnpm run protocol:check --from .protocol
+      - name: Format and types
+        run: pnpm run format:check && pnpm run typecheck
+      - name: Build
+        run: pnpm run build
+      - name: Tests
+        run: pnpm test

@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/Company-Runtime/runtime-protocol",
+  "commit": "86b2ab7745a62b4cb8ffc8660be4feb1d2007f51",
+  "protocol": "runtime/0.1",
+  "suite": "0.1.0",
+  "digest": "sha256:fa022797df828f4159e4e8288dcaa6dd4d7d58cbcc37a9b65401fbc4f619d2eb"
+}
