@@ -14,6 +14,11 @@ export interface FetchJsonOptions {
   api?: string;
   /** Values that must never appear in error messages, such as the materialized credential. */
   redact?: string[];
+  /**
+   * Error statuses the caller interprets itself: they are returned like a success, with
+   * the parsed body, instead of being classified.
+   */
+  accept?: number[];
 }
 
 export interface JsonResponse<T = unknown> {
@@ -91,7 +96,7 @@ export async function fetchJson<T = unknown>(
     }
   }
   const status = response.status;
-  if (status >= 200 && status < 300) {
+  if ((status >= 200 && status < 300) || options.accept?.includes(status)) {
     if (!parsed) throw new Error(`${api} answered HTTP ${status} with a body that is not JSON`);
     return { status, headers: response.headers, body: body as T };
   }

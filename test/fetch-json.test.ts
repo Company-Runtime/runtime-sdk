@@ -54,6 +54,10 @@ test("fetchJson returns JSON and sends JSON bodies and queries", async () => {
     assert.equal(seen[1]?.type, "application/json");
     assert.equal(seen[1]?.body, '{"title":"x"}');
     assert.equal((await fetchJson(`${url}/empty`, { method: "DELETE" })).body, null);
+    // Statuses the caller interprets itself come back with their body.
+    const conflict = await fetchJson(`${url}/missing`, { accept: [404] });
+    assert.equal(conflict.status, 404);
+    assert.deepEqual(conflict.body, { error: { message: "Not Found" } });
   } finally {
     server.close();
   }
