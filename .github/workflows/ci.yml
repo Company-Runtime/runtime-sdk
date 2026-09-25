@@ -37,3 +37,5 @@ jobs:
         run: pnpm run build
       - name: Tests
         run: pnpm test
+      - name: Conformance suite
+        run: pnpm run conformance
