@@ -36,3 +36,48 @@ export {
   isTerminal,
   InvalidTransitionError,
 } from "./state.ts";
+export {
+  GrantAuthority,
+  denyAll,
+  matchPattern,
+  type AuthorityEvaluator,
+  type AuthorityQuestion,
+} from "./authority.ts";
+export {
+  PolicySetEvaluator,
+  allowAll,
+  mergeObligations,
+  strongerEffect,
+  type PolicyEvaluator,
+  type PolicyQuestion,
+  type ProviderPolicyQuestion,
+} from "./policy.ts";
+export {
+  InMemoryCredentialBroker,
+  EnvCredentialBroker,
+  ownerOf,
+  selectCredential,
+  type CredentialBroker,
+  type CredentialSelection,
+} from "./credentials.ts";
+export {
+  resolveProviders,
+  STAGE_CODES,
+  type Candidate,
+  type ResolutionContext,
+  type ResolutionOutcome,
+} from "./resolver.ts";
+export {
+  defineProvider,
+  evidenceHelpers,
+  ProviderFailure,
+  ProviderUnreachableError,
+  type Provider,
+  type ProviderContext,
+  type ProviderDefinition,
+  type Handler,
+  type HandlerContext,
+  type HandlerResult,
+  type ReconcileHandler,
+  type EvidenceHelpers,
+} from "./provider.ts";
