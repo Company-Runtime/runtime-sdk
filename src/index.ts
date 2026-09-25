@@ -68,6 +68,19 @@ export {
   type ResolutionOutcome,
 } from "./resolver.ts";
 export {
+  CLAIM_SUPPORT,
+  supports,
+  recordEvidence,
+  coveredClaims,
+  missingClaims,
+  verifyEvidence,
+  evidenceRef,
+} from "./evidence.ts";
+export { buildReceipt, verifyReceipt } from "./receipt.ts";
+export { InMemoryEventLog, type EventSink } from "./events.ts";
+export { InMemoryExecutionStore, type ExecutionRecord, type ExecutionStore } from "./store.ts";
+export { UlidGenerator, SequentialIds, type IdGenerator, type IdPrefix } from "./ids.ts";
+export {
   defineProvider,
   evidenceHelpers,
   ProviderFailure,
@@ -81,3 +94,25 @@ export {
   type ReconcileHandler,
   type EvidenceHelpers,
 } from "./provider.ts";
+export {
+  buildRequest,
+  request,
+  defaultRange,
+  CapabilityRequestBuilder,
+  type RequestShorthand,
+  type RequestDefaults,
+} from "./client.ts";
+export {
+  Runtime,
+  type RuntimeOptions,
+  type ExecutionOutcome,
+  type ApprovalInput,
+} from "./runtime.ts";
+export { validateRecipe, runRecipe, type RecipeRun } from "./recipe.ts";
+
+import { Runtime, type RuntimeOptions } from "./runtime.ts";
+
+/** Creates a runtime (see `Runtime`). */
+export function createRuntime(options: RuntimeOptions = {}): Runtime {
+  return new Runtime(options);
+}
