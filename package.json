@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Reference TypeScript implementation of the Runtime Protocol runtime/0.1: types, validation, resolution, execution, evidence, receipts, bindings and conformance.",
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "repository": {
     "type": "git",
