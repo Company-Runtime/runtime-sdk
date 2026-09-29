@@ -6,6 +6,7 @@ import {
   SequentialIds,
   verifyReceipt,
 } from "../src/index.ts";
+import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import {
   connectRemoteProvider,
@@ -136,6 +137,63 @@ test("an unreachable remote provider fails without effects", async () => {
   });
   assert.equal(outcome.execution.state, "failed");
   assert.equal(outcome.error?.code, "provider_unavailable");
+});
+
+test("an oversized remote provider answer is refused unread and leaves the outcome unknown", async () => {
+  const reference = createReferenceProvider({ id: "remote-reference" });
+  const inner = createProviderHttpHandler(reference, {
+    credentials: new InMemoryCredentialBroker({ [ORG_KEY_REF]: ORG_KEY }),
+  });
+  const padding = "x".repeat(64 * 1024);
+  const providerServer = await serve(async (req) => {
+    const response = await inner(req);
+    if (!new URL(req.url).pathname.startsWith("/invocations")) return response;
+    const body = (await response.json()) as Record<string, unknown>;
+    return new Response(JSON.stringify({ ...body, padding }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  // No content-length: the limit must hold while streaming, not only on a declared size.
+  const chunked = createHttpServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.write(`{"padding":"`);
+    res.write(padding);
+    res.end(`"}`);
+  });
+  await new Promise<void>((resolve) => chunked.listen(0, "127.0.0.1", resolve));
+  const { port } = chunked.address() as { port: number };
+  try {
+    const remote = await connectRemoteProvider({
+      url: providerServer.url,
+      maxResponseBytes: 16 * 1024,
+    });
+    const runtime = createRuntime({
+      providers: [remote],
+      authority: grants,
+      credentials: {
+        bindings: [{ provider: "remote-reference", ref: ORG_KEY_REF }],
+        broker: { has: () => true, materialize: () => "unused" },
+      },
+      ids: new SequentialIds(),
+    });
+    const outcome = await runtime.execute(smokeRequest);
+    // The provider sent the message; only its answer was refused.
+    assert.equal(reference.outbox.length, 1);
+    assert.equal(outcome.execution.state, "unknown");
+
+    await assert.rejects(
+      connectRemoteProvider({ url: providerServer.url, maxResponseBytes: 16 }),
+      /size limit/,
+    );
+    await assert.rejects(
+      connectRemoteProvider({ url: `http://127.0.0.1:${port}`, maxResponseBytes: 1024 }),
+      /size limit/,
+    );
+  } finally {
+    await providerServer.close();
+    await new Promise<void>((resolve) => chunked.close(() => resolve()));
+  }
 });
 
 /** A local port that nothing listens on. */

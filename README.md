@@ -164,6 +164,8 @@ runtime-conformance provider ./dist/provider.js --export provider --samples samp
   events and errors are checked, and error messages are redacted.
 - Receipts are canonical and integrity-protected; they record the credential owner,
   never the credential.
+- A remote provider's answer above `maxResponseBytes` (1 MiB by default) is refused
+  unread; an invocation answered that way is `unknown`, not `completed`.
 
 ## Conformance
 
