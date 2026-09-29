@@ -119,6 +119,66 @@ test("http/0.1 provider API: a remote provider materializes its own credential",
   }
 });
 
+test("http/0.1 provider API: public discovery routes and a per-request credential broker", async () => {
+  const reference = createReferenceProvider({ id: "remote-reference" });
+  const authenticate = (req: Request) =>
+    req.headers.get("authorization") === "Bearer runtime-token";
+  const brokers: string[] = [];
+  const providerServer = await serve(
+    createProviderHttpHandler(reference, {
+      authenticate,
+      publicRoutes: ["manifest", "health"],
+      // The broker sees the request, so it can use the caller's transport credentials.
+      credentials: (req) => {
+        brokers.push(req.headers.get("authorization") ?? "");
+        return new InMemoryCredentialBroker({ [ORG_KEY_REF]: ORG_KEY });
+      },
+    }),
+  );
+  const closedServer = await serve(createProviderHttpHandler(reference, { authenticate }));
+  try {
+    assert.equal((await fetch(`${providerServer.url}/.well-known/runtime-provider`)).status, 200);
+    assert.equal((await fetch(`${providerServer.url}/health`)).status, 200);
+    const anonymous = await fetch(`${providerServer.url}/invocations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(anonymous.status, 401);
+    // Without publicRoutes, every route still authenticates.
+    const closed = await fetch(`${closedServer.url}/.well-known/runtime-provider`);
+    assert.equal(closed.status, 401);
+    assert.equal((await fetch(`${closedServer.url}/health`)).status, 401);
+
+    const remote = await connectRemoteProvider({
+      url: providerServer.url,
+      headers: { authorization: "Bearer runtime-token" },
+    });
+    const runtime = createRuntime({
+      providers: [remote],
+      authority: grants,
+      credentials: {
+        bindings: [{ provider: "remote-reference", ref: ORG_KEY_REF }],
+        broker: {
+          has: () => true,
+          materialize: () => {
+            throw new Error("never on this side");
+          },
+        },
+      },
+      ids: new SequentialIds(),
+    });
+    const outcome = await runtime.execute(smokeRequest);
+    assert.equal(outcome.execution.state, "completed", JSON.stringify(outcome.error));
+    assert.equal(reference.outbox.length, 1);
+    // Discovery and health never built a broker; the invocation built one from its request.
+    assert.deepEqual(brokers, ["Bearer runtime-token"]);
+  } finally {
+    await providerServer.close();
+    await closedServer.close();
+  }
+});
+
 test("an unreachable remote provider fails without effects", async () => {
   const reference = createReferenceProvider({
     id: "gone",

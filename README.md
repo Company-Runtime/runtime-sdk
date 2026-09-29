@@ -144,7 +144,9 @@ runtime-conformance provider ./dist/provider.js --export provider --samples samp
 - **HTTP** — `createHttpHandler(runtime, { authenticate })` serves the runtime API
   (`serve()` for Node.js); `RuntimeHttpClient` calls it. `createProviderHttpHandler`
   and `connectRemoteProvider` run providers behind the provider API; a provider that
-  cannot be reached fails with `provider_unavailable` and no effect.
+  cannot be reached fails with `provider_unavailable` and no effect. `publicRoutes`
+  leaves the manifest and health routes unauthenticated, and `credentials` may be a
+  function of the request, for a broker that needs the caller's transport credentials.
 - **MCP** — `createMcpServer(runtime, { actor })` exposes resolvable capabilities as
   tools (`communication__send`), over stdio with `serveStdio`. The actor comes from the
   session, never from tool arguments. `mcpToolProvider` implements a capability with a

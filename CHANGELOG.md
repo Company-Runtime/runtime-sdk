@@ -26,6 +26,8 @@ commit in [`protocol.lock.json`](protocol.lock.json).
   about effects; an in-process reference provider.
 - Bindings: HTTP runtime API, client and provider API (`http/0.1`); MCP server over
   stdio, MCP tools as adapters and runtime federation over MCP (`mcp/0.1`); lossless
-  CloudEvents mapping and sinks (`events/0.1`).
+  CloudEvents mapping and sinks (`events/0.1`). The provider API handler can leave
+  the manifest and health routes public (`publicRoutes`) and build its credential
+  broker from each request.
 - Conformance runner for the bundled suite (58/58 cases pass) and a provider harness
   for requirements `PC-001`–`PC-010`, with the `runtime-conformance` CLI.
