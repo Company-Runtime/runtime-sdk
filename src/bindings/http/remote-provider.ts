@@ -10,6 +10,8 @@ import type {
 } from "../../types.ts";
 import { PROTOCOL_HEADER } from "./status.ts";
 
+const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024;
+
 export interface RemoteProviderOptions {
   url: string;
   /** The provider manifest; fetched from /.well-known/runtime-provider by `connectRemoteProvider`. */
@@ -17,12 +19,42 @@ export interface RemoteProviderOptions {
   fetch?: typeof fetch;
   /** Transport credentials of the runtime towards the provider (never provider API keys). */
   headers?: Record<string, string>;
+  /**
+   * Largest response body accepted from the provider, in bytes (1 MiB by default). A
+   * larger answer to an invocation is refused unread, so its outcome is `unknown`.
+   */
+  maxResponseBytes?: number;
+}
+
+/** Reads a JSON body of at most `limit` bytes; a larger body is refused without buffering it. */
+async function readJson(response: Response, limit: number): Promise<unknown> {
+  const tooLarge = () => new Error("provider response exceeds the size limit");
+  if (Number(response.headers.get("content-length") ?? "0") > limit) {
+    await response.body?.cancel();
+    throw tooLarge();
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("provider response is empty");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
 /** A provider reached through the provider API of the http/0.1 binding. */
 export function remoteProvider(options: RemoteProviderOptions): Provider {
   const base = options.url.replace(/\/+$/, "");
   const doFetch = options.fetch ?? fetch;
+  const limit = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
   const post = async (path: string, body: unknown, signal?: AbortSignal): Promise<unknown> => {
     let response: Response;
     try {
@@ -42,7 +74,7 @@ export function remoteProvider(options: RemoteProviderOptions): Provider {
       throw error;
     }
     if (response.status !== 200) throw new Error(`provider answered HTTP ${response.status}`);
-    return response.json();
+    return readJson(response, limit);
   };
   return {
     manifest: options.manifest,
@@ -58,7 +90,7 @@ export function remoteProvider(options: RemoteProviderOptions): Provider {
       const response = await doFetch(`${base}/health`, {
         headers: { [PROTOCOL_HEADER]: PROTOCOL, ...options.headers },
       });
-      return (await response.json()) as Health;
+      return (await readJson(response, limit)) as Health;
     },
   };
 }
@@ -76,5 +108,6 @@ export async function connectRemoteProvider(
   );
   if (response.status !== 200)
     throw new Error(`provider manifest unavailable (HTTP ${response.status})`);
-  return remoteProvider({ ...options, manifest: (await response.json()) as ProviderManifest });
+  const manifest = await readJson(response, options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES);
+  return remoteProvider({ ...options, manifest: manifest as ProviderManifest });
 }

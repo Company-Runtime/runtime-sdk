@@ -24,6 +24,8 @@ commit in [`protocol.lock.json`](protocol.lock.json).
 - Provider SDK (`defineProvider`) with input validation, evidence helpers and typed
   failures; `fetchJson`, which classifies vendor HTTP failures by what they prove
   about effects; an in-process reference provider.
+- `remoteProvider` and `connectRemoteProvider` read provider answers up to
+  `maxResponseBytes` (1 MiB by default) and refuse larger ones unread.
 - Bindings: HTTP runtime API, client and provider API (`http/0.1`); MCP server over
   stdio, MCP tools as adapters and runtime federation over MCP (`mcp/0.1`); lossless
   CloudEvents mapping and sinks (`events/0.1`). The provider API handler can leave
