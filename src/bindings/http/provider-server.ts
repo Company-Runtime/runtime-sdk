@@ -7,10 +7,19 @@ import type { Invocation } from "../../types.ts";
 import { PROTOCOL_HEADER } from "./status.ts";
 
 export interface ProviderHttpOptions {
-  /** The provider side's own broker: it materializes the invocation's CredentialRef locally. */
-  credentials?: CredentialBroker;
+  /**
+   * The provider side's own broker: it materializes the invocation's CredentialRef locally.
+   * A function receives the incoming request, for a broker that needs the caller's
+   * transport credentials (a host-side credential service, for example).
+   */
+  credentials?: CredentialBroker | ((request: Request) => CredentialBroker | undefined);
   /** Authenticates the calling runtime (transport credentials); reject unknown callers. */
   authenticate?: (request: Request) => Promise<boolean> | boolean;
+  /**
+   * Routes answered without `authenticate`: `manifest` (`GET /.well-known/runtime-provider`)
+   * and `health` (`GET /health`). None by default. Invocation routes always authenticate.
+   */
+  publicRoutes?: ReadonlyArray<"manifest" | "health">;
   registry?: Registry;
 }
 
@@ -26,13 +35,24 @@ const json = (status: number, body: unknown) =>
  */
 export function createProviderHttpHandler(provider: Provider, options: ProviderHttpOptions = {}) {
   const registry = options.registry ?? Registry.core();
-  const context = (invocation: Invocation, controller: AbortController): ProviderContext => ({
+  const publicRoutes = new Set(options.publicRoutes ?? []);
+  const context = (
+    invocation: Invocation,
+    controller: AbortController,
+    request: Request,
+  ): ProviderContext => ({
     signal: controller.signal,
     now: () => new Date(),
     credential: async () => {
       const ref = invocation.credential?.ref;
-      if (!ref || !options.credentials) return undefined;
-      return options.credentials.materialize(ref);
+      if (!ref) return undefined;
+      // Built only when the provider asks for a credential, like materialization itself.
+      const broker =
+        typeof options.credentials === "function"
+          ? options.credentials(request)
+          : options.credentials;
+      if (!broker) return undefined;
+      return broker.materialize(ref);
     },
   });
   const invocationOf = async (request: Request): Promise<Invocation | Response> => {
@@ -67,19 +87,28 @@ export function createProviderHttpHandler(provider: Provider, options: ProviderH
   };
 
   return async (request: Request): Promise<Response> => {
-    if (options.authenticate && !(await options.authenticate(request)))
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    const method = request.method.toUpperCase();
+    const route =
+      method === "GET" && path === "/.well-known/runtime-provider"
+        ? "manifest"
+        : method === "GET" && path === "/health"
+          ? "health"
+          : undefined;
+    if (
+      options.authenticate &&
+      !(route && publicRoutes.has(route)) &&
+      !(await options.authenticate(request))
+    )
       return json(401, {
         protocol: PROTOCOL,
         error: errorBody("authority_denied", "The caller is not authenticated.", {
           detail: "unauthenticated",
         }),
       });
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, "") || "/";
-    const method = request.method.toUpperCase();
-    if (method === "GET" && path === "/.well-known/runtime-provider")
-      return json(200, provider.manifest);
-    if (method === "GET" && path === "/health")
+    if (route === "manifest") return json(200, provider.manifest);
+    if (route === "health")
       return json(
         200,
         provider.health
@@ -91,7 +120,10 @@ export function createProviderHttpHandler(provider: Provider, options: ProviderH
       if (invocation instanceof Response) return invocation;
       const { controller, done } = withDeadline(invocation);
       try {
-        return json(200, await provider.execute(invocation, context(invocation, controller)));
+        return json(
+          200,
+          await provider.execute(invocation, context(invocation, controller, request)),
+        );
       } catch (error) {
         return json(200, {
           protocol: PROTOCOL,
@@ -129,7 +161,10 @@ export function createProviderHttpHandler(provider: Provider, options: ProviderH
         deadline: new Date(Date.now() + 30_000).toISOString(),
       });
       try {
-        return json(200, await provider.reconcile(invocation, context(invocation, controller)));
+        return json(
+          200,
+          await provider.reconcile(invocation, context(invocation, controller, request)),
+        );
       } finally {
         done();
       }
